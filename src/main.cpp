@@ -18,6 +18,24 @@ void send_brake_cmd(CAN_message_t &msg){
   //Convert percentage value to distance to move to
   //Max distance is 3.125", for saftey limit to 3.0"
   //Equates to 3000 steps of 0.001, 500 unit offset is applied
+  if((msg.buf[0] > 100 && msg.buf[0] != 0xFF) || msg.buf[0] < 0){
+    Serial.print("ERROR! Vaue out of range :(");
+    return;
+  }
+  if(msg.buf[0] == 0xFF){
+    //Send auto zero message
+    last_dist = 0;
+    act_msg.buf[0] = 0x7E;
+    act_msg.buf[1] = 0x02;
+    act_msg.buf[2] = 0x12;
+    act_msg.buf[3] = 0x34;
+    act_msg.buf[4] = 0x56;
+    act_msg.buf[5] = 0xAB;
+    act_msg.buf[6] = 0xCD;
+    act_msg.buf[7] = 0xEF;
+    actuator.write(act_msg);
+    return;
+  }
   float percentage = float(msg.buf[0]) / 100.0;
   last_dist = (percentage * MAX_ACTUATOR_DIST) + 500;
   //First two bytes are standard for control messages
