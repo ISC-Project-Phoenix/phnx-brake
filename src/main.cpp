@@ -52,6 +52,7 @@ void send_manual_cmd(uint8_t p){
 void send_brake_cmd(CAN_message_t &msg){
   if(msg.id == 0x7){
     training_mode = true;
+    digitalWrite(LED_BUILTIN, HIGH);
     return;
   }
   if(training_mode){
@@ -155,9 +156,9 @@ void loop() {
   float vol = analogRead(PEDAL_INPUT);
   vol = vol * (3.3 / 1023.0);
   float resistance = -(7500.0 * vol / (vol - 5.0));
-  uint16_t percent = ((resistance / 5000.0) * 100.0);
+  uint8_t percent = ((resistance / 5000.0) * 100.0);
 
-  if(percent > 1){
+  if(percent > 5){
     if(!auton_disabled){
       auton_disabled = true;
       CAN_message_t kill_auton;
