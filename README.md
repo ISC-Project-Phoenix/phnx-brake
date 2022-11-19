@@ -8,3 +8,4 @@ actuator via a dedicated CAN bus. This ECU will also handle transmitting trainin
 - High Priority Bus CAN TX Pin: 22
 - Actuator Bus CAN RX Pin: 0
 - Actuator Bus CAN TX Pin: 1
+- Pedal Reference Pin: 20
