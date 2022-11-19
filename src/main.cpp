@@ -5,6 +5,7 @@
 constexpr int PEDAL_INPUT = 20;
 constexpr int PEDAL_POLL_RATE = 100; //In microseconds
 constexpr int KEEP_ALIVE_RATE = 100000; // In microseconds
+constexpr int TRAINING_MODE_ID = 8;
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> h_priority;
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> actuator;
@@ -19,7 +20,7 @@ IntervalTimer poll_pedal;
 
 void send_can_cmd(CAN_message_t &msg){
   if(!training_mode){
-    if(msg.id == 0x7){
+    if(msg.id == TRAINING_MODE_ID){
         training_mode = true;
         digitalWrite(LED_BUILTIN, HIGH);
         return;
