@@ -18,56 +18,56 @@ bool training_mode;
 IntervalTimer keep_alive;
 IntervalTimer poll_pedal;
 
-void send_can_cmd(CAN_message_t &msg){
-  if(!training_mode){
-    if(msg.id == TRAINING_MODE_ID){
-        training_mode = true;
-        digitalWrite(LED_BUILTIN, HIGH);
-        return;
+void send_can_cmd(CAN_message_t &msg) {
+    if (!training_mode) {
+        if (msg.id == TRAINING_MODE_ID) {
+            training_mode = true;
+            digitalWrite(LED_BUILTIN, HIGH);
+            return;
+        }
+        auton_disabled = false;
+        CAN_message_t act_msg;
+
+        brake_ecu.generate_brk_msg(msg, act_msg);
+
+        actuator.write(act_msg);
     }
-    auton_disabled = false;
+}
+
+void actu_keep_alive() {
+    //Callback to resend the last received brake message so the actuator doesnt go to sleep
+    //If this is not sent the actuator will still take in new messages but wont hold its last
+    //position
     CAN_message_t act_msg;
 
-    brake_ecu.generate_brk_msg(msg, act_msg);
+    brake_ecu.generate_brk_msg(act_msg);
 
     actuator.write(act_msg);
-  }
 }
 
-void actu_keep_alive(){
-  //Callback to resend the last received brake message so the actuator doesnt go to sleep
-  //If this is not sent the actuator will still take in new messages but wont hold its last
-  //position
-  CAN_message_t act_msg;
-
-  brake_ecu.generate_brk_msg(act_msg);
-
-  actuator.write(act_msg);
-}
-
-void poll_pedal_value(){
-  //Callback to get new reading from the pedal and if that reading is above 5% put it onto the actuator bus
+void poll_pedal_value() {
+    //Callback to get new reading from the pedal and if that reading is above 5% put it onto the actuator bus
     //Poll pedal for input, get raw value and convert to voltage
-  // 0 - 1023 => 0.0v - 3.3v 
-  float vol = analogRead(PEDAL_INPUT);
-  vol = vol * (3.3 / 1023.0);
-  float resistance = -(7500.0 * vol / (vol - 5.0));
-  uint8_t percent = ((resistance / 5000.0) * 100.0);
+    // 0 - 1023 => 0.0v - 3.3v
+    float vol = analogRead(PEDAL_INPUT);
+    vol = vol * (3.3 / 1023.0);
+    float resistance = -(7500.0 * vol / (vol - 5.0));
+    uint8_t percent = ((resistance / 5000.0) * 100.0);
 
-  if(percent > 5){
-    CAN_message_t act_msg;
-    if(!auton_disabled){
-      auton_disabled = true;
-      CAN_message_t kill_auton;
-      kill_auton.id = 0x0;
-      kill_auton.flags.extended = 1;
-      h_priority.write(kill_auton);
+    if (percent > 5) {
+        CAN_message_t act_msg;
+        if (!auton_disabled) {
+            auton_disabled = true;
+            CAN_message_t kill_auton;
+            kill_auton.id = 0x0;
+            kill_auton.flags.extended = 1;
+            h_priority.write(kill_auton);
+        }
+
+        brake_ecu.generate_brk_msg(percent, act_msg);
+
+        actuator.write(act_msg);
     }
-
-    brake_ecu.generate_brk_msg(percent, act_msg);
-
-    actuator.write(act_msg);
-  }
 }
 
 void setup() {
@@ -118,5 +118,5 @@ void setup() {
 void loop() {
     h_priority.events();
     actuator.events();
-    asm volatile("wfi" ::: "memory");
+    asm volatile("wfi":: : "memory");
 }

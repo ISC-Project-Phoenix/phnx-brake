@@ -1,23 +1,23 @@
 #include "brake.hpp"
 
-Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist){
+Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist) {
     this->actuator_cmd_id = act_cmd_id;
     this->max_actuator_dist = max_dist;
     this->last_dist = 0;
 }
 
-void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg){
+void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
     ///Generate output message for actuator CAN bus based on input CAN message
     out_msg.id = this->actuator_cmd_id;
     out_msg.flags.extended = 1;
     //Convert percentage value to distance to move to
     //Max distance is 3.125", for saftey limit to 3.0"
     //Equates to 3000 steps of 0.001, 500 unit offset is applied
-    if((in_msg.buf[0] > 100 && in_msg.buf[0] != 0xFF)){
+    if ((in_msg.buf[0] > 100 && in_msg.buf[0] != 0xFF)) {
         Serial.print("ERROR! Vaue out of range :(");
         return;
     }
-    if(in_msg.buf[0] == 0xFF){
+    if (in_msg.buf[0] == 0xFF) {
         //Send auto zero message
         last_dist = 0;
         out_msg.buf[0] = 0x7E;
@@ -48,7 +48,7 @@ void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg){
 }
 
 
-void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg){
+void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg) {
     ///Generate output message for actuator CAN bus based on input pedal percentage
     out_msg.id = this->actuator_cmd_id;
     out_msg.flags.extended = 1;
@@ -67,7 +67,7 @@ void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg){
     out_msg.buf[3] |= 1UL << 6;
 }
 
-void Brake::generate_brk_msg(CAN_message_t &out_msg){
+void Brake::generate_brk_msg(CAN_message_t &out_msg) {
     ///Generate output message for actuator CAN bus based last recieved distance
     out_msg.id = this->actuator_cmd_id;
     out_msg.flags.extended = 1;
