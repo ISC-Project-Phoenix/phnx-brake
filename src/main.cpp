@@ -1,70 +1,95 @@
-#include <Arduino.h>
-#include <FlexCAN_T4.h>
 #include "brake.hpp"
 
-constexpr int PEDAL_INPUT = 20;
+enum CanMappings {
+    KillAuton = 0x0,
+    SetBrake = 0x1,
+    TrainingMode = 0x8,
+};
+
+constexpr int PEDAL_INPUT_PIN = 20;
 constexpr int PEDAL_POLL_RATE = 100; //In microseconds
 constexpr int KEEP_ALIVE_RATE = 100000; // In microseconds
-constexpr int TRAINING_MODE_ID = 8;
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> h_priority;
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> actuator;
 
-//Actuator Command ID, Maximum actuator distance
-Brake brake_ecu(0xFF0000, 1000);
+/// Stores actuator state. Must be synchronised
+Brake brake_ecu{0xFF0000, 1000};
+
 bool auton_disabled;
 bool training_mode;
 
+/// Timer to send heartbeat messages to actuator
 IntervalTimer keep_alive;
+/// Timer to poll pedal ADC
 IntervalTimer poll_pedal;
 
+/// Called on can message received in the main loop context.
+///
+/// \param msg Either a Set Brake or Training Mode message
 void send_can_cmd(CAN_message_t &msg) {
     if (!training_mode) {
-        if (msg.id == TRAINING_MODE_ID) {
+        if (msg.id == CanMappings::TrainingMode) {
             training_mode = true;
             digitalWrite(LED_BUILTIN, HIGH);
             return;
+        } else if (msg.id == CanMappings::SetBrake) {
+            auton_disabled = false;
+            CAN_message_t act_msg;
+
+            noInterrupts();
+            brake_ecu.generate_brk_msg(msg, act_msg);
+            interrupts();
+
+            actuator.write(act_msg);
+        } else {
+            Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
         }
-        auton_disabled = false;
-        CAN_message_t act_msg;
-
-        brake_ecu.generate_brk_msg(msg, act_msg);
-
-        actuator.write(act_msg);
+    } else {
+        //TODO add training mode
     }
 }
 
+/// Callback to resend the last received brake message so the actuator doesnt go to sleep.
+/// If this is not sent the actuator will still take in new messages but wont hold its last
+/// position.
 void actu_keep_alive() {
-    //Callback to resend the last received brake message so the actuator doesnt go to sleep
-    //If this is not sent the actuator will still take in new messages but wont hold its last
-    //position
     CAN_message_t act_msg;
 
+    noInterrupts();
     brake_ecu.generate_brk_msg(act_msg);
+    interrupts();
 
     actuator.write(act_msg);
 }
 
+/// Polls the pedal ADC
 void poll_pedal_value() {
     //Callback to get new reading from the pedal and if that reading is above 5% put it onto the actuator bus
     //Poll pedal for input, get raw value and convert to voltage
     // 0 - 1023 => 0.0v - 3.3v
-    float vol = analogRead(PEDAL_INPUT);
-    vol = vol * (3.3 / 1023.0);
-    float resistance = -(7500.0 * vol / (vol - 5.0));
-    uint8_t percent = ((resistance / 5000.0) * 100.0);
+    auto vol = float(analogRead(PEDAL_INPUT_PIN));
+    vol *= (3.3 / 1023.0);
+    float resistance = -(7500.0f * vol / (vol - 5.0f));
+
+    // Throttle down percent
+    auto percent = uint8_t((resistance / 5000.0f) * 100.0f);
 
     if (percent > 5) {
         CAN_message_t act_msg;
+
+        // Disable auton if not, since the pedal is being pressed
         if (!auton_disabled) {
             auton_disabled = true;
             CAN_message_t kill_auton;
-            kill_auton.id = 0x0;
-            kill_auton.flags.extended = 1;
+            kill_auton.id = CanMappings::KillAuton;
+            kill_auton.flags.extended = true;
             h_priority.write(kill_auton);
         }
 
+        noInterrupts();
         brake_ecu.generate_brk_msg(percent, act_msg);
+        interrupts();
 
         actuator.write(act_msg);
     }
@@ -72,7 +97,7 @@ void poll_pedal_value() {
 
 void setup() {
     Serial.begin(115200);
-    pinMode(PEDAL_INPUT, INPUT);
+    pinMode(PEDAL_INPUT_PIN, INPUT);
     digitalWrite(LED_BUILTIN, HIGH);
     delay(1000);
     digitalWrite(LED_BUILTIN, LOW);
@@ -100,8 +125,8 @@ void setup() {
     h_priority.setMB(MB2, TX, EXT);
     h_priority.setMBFilter(REJECT_ALL);
     h_priority.enableMBInterrupts();
-    h_priority.setMBFilter(MB0, 0x1, 0x7);
-    h_priority.onReceive(MB0, send_can_cmd);
+    h_priority.setMBFilter(MB0, CanMappings::SetBrake, CanMappings::TrainingMode);
+    h_priority.onReceive(MB0, reinterpret_cast<_MB_ptr>(send_can_cmd));
 
     /*
      * Setup mailboxes for actuator bus
@@ -111,6 +136,8 @@ void setup() {
     actuator.enableMBInterrupts();
 
     //Interrupts to keep the actuator alive and poll the pedal for input
+    keep_alive.priority(0);
+    poll_pedal.priority(1);
     keep_alive.begin(actu_keep_alive, KEEP_ALIVE_RATE);
     poll_pedal.begin(poll_pedal_value, PEDAL_POLL_RATE);
 }
@@ -118,5 +145,6 @@ void setup() {
 void loop() {
     h_priority.events();
     actuator.events();
+    // Puts the proc in low power until the next interrupt fires
     asm volatile("wfi":: : "memory");
 }
