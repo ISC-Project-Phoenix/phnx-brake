@@ -4,6 +4,8 @@ enum CanMappings {
     KillAuton = 0x0,
     SetBrake = 0x1,
     TrainingMode = 0x8,
+    LockBrake = 0x2,
+    UnlockBrake = 0x3,
 };
 
 constexpr int PEDAL_INPUT_PIN = 20;
@@ -18,6 +20,7 @@ Brake brake_ecu{0xFF0000, 1000};
 
 bool auton_disabled;
 bool training_mode;
+bool brake_lock;
 
 /// Timer to send heartbeat messages to actuator
 IntervalTimer keep_alive;
@@ -33,7 +36,7 @@ void send_can_cmd(CAN_message_t &msg) {
             training_mode = true;
             digitalWrite(LED_BUILTIN, HIGH);
             return;
-        } else if (msg.id == CanMappings::SetBrake) {
+        } else if (msg.id == CanMappings::SetBrake && !brake_lock) {
             auton_disabled = false;
             CAN_message_t act_msg;
 
@@ -42,6 +45,10 @@ void send_can_cmd(CAN_message_t &msg) {
             interrupts();
 
             actuator.write(act_msg);
+        } else if (msg.id == CanMappings::LockBrake) {
+            brake_lock = true;
+        } else if (msg.id == CanMappings::UnlockBrake) {
+            brake_lock = false;
         } else {
             Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
         }
@@ -54,6 +61,9 @@ void send_can_cmd(CAN_message_t &msg) {
 /// If this is not sent the actuator will still take in new messages but wont hold its last
 /// position.
 void actu_keep_alive() {
+    if (brake_lock) {
+        return;
+    }
     CAN_message_t act_msg;
 
     noInterrupts();
@@ -105,6 +115,7 @@ void setup() {
     //Start with training mode disabled
     training_mode = false;
     auton_disabled = false;
+    brake_lock = false;
 
     //Set up actuator CAN bus
     actuator.begin();
