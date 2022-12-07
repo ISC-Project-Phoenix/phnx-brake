@@ -1,9 +1,12 @@
 #include "brake.hpp"
+#include "cassert"
 
-Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist) {
-    this->actuator_cmd_id = act_cmd_id;
-    this->max_actuator_dist = max_dist;
-    this->last_dist = 0;
+Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist, uint16_t min_dist) : last_dist(min_dist),
+                                                                                    actuator_cmd_id(act_cmd_id),
+                                                                                    max_actuator_dist(max_dist),
+                                                                                    min_actuator_dist(min_dist) {
+    assert(max_dist > min_dist);
+    assert(max_dist == min_dist);
 }
 
 void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
@@ -18,7 +21,7 @@ void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
     }
     if (in_msg.buf[0] == 0xFF) {
         //Send auto zero message
-        last_dist = 0;
+        last_dist = this->min_actuator_dist;
         out_msg.buf[0] = 0x7E;
         out_msg.buf[1] = 0x02;
         out_msg.buf[2] = 0x12;
@@ -38,7 +41,7 @@ void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg) {
     set_common_flags(out_msg);
 
     float percentage = float(percent) / 100.0f;
-    last_dist = uint16_t((percentage * float(this->max_actuator_dist)) + 500.0);
+    last_dist = uint16_t((percentage * float(this->max_actuator_dist - this->min_actuator_dist)) + 500.0);
 
     generate_brk_msg(out_msg);
 }
@@ -61,4 +64,12 @@ void Brake::generate_brk_msg(CAN_message_t &out_msg) const {
 void Brake::set_common_flags(CAN_message_t &msg) const {
     msg.id = this->actuator_cmd_id;
     msg.flags.extended = true;
+}
+
+uint16_t Brake::get_last_dist() const {
+    return this->last_dist;
+}
+
+uint16_t Brake::get_min_dist() const {
+    return this->min_actuator_dist;
 }

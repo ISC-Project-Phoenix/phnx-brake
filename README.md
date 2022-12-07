@@ -1,6 +1,6 @@
 # Phoenix Brake ECU Board
 
-This ECU board is responisble for taking in Set Brake messages from the high priority CAN bus and transmitting them to the brake
+This ECU board is responsible for taking in Set Brake messages from the high priority CAN bus and transmitting them to the brake
 actuator via a dedicated CAN bus. This ECU will also handle transmitting training data back to the interface ECU
 
 ## Relevant Pins:
