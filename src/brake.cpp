@@ -74,3 +74,7 @@ uint16_t Brake::get_last_dist() const {
 uint16_t Brake::get_min_dist() const {
     return this->min_actuator_dist;
 }
+
+void Brake::set_last_dist(uint16_t dist) {
+    this->last_dist = dist;
+}

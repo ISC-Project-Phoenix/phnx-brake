@@ -29,6 +29,9 @@ public:
     ///Return the last measured distance from either the pedal or the CAN bus
     uint16_t get_last_dist() const;
 
+    ///Set the last received distance for actuator heartbeat
+    void set_last_dist(uint16_t dist);
+
     ///Return minimum distance actuator can move
     uint16_t get_min_dist() const;
 

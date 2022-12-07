@@ -16,7 +16,7 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> h_priority;
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> actuator;
 
 /// Stores actuator state. Must be synchronised
-Brake brake_ecu{0xFF0000, 3000, 0};
+Brake brake_ecu{0xFF0000, 2000, 0};
 
 bool auton_disabled;
 bool training_mode;
@@ -48,6 +48,8 @@ void send_can_cmd(CAN_message_t &msg) {
         } else if (msg.id == CanMappings::LockBrake) {
             brake_lock = true;
         } else if (msg.id == CanMappings::UnlockBrake) {
+            //Set actuator last dist to what we've defined our starting point to be
+            brake_ecu.set_last_dist(brake_ecu.get_min_dist());
             brake_lock = false;
         } else {
             Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
