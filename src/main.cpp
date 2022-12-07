@@ -3,9 +3,9 @@
 enum CanMappings {
     KillAuton = 0x0,
     SetBrake = 0x1,
-    TrainingMode = 0x8,
     LockBrake = 0x2,
     UnlockBrake = 0x3,
+    TrainingMode = 0x8,
 };
 
 constexpr int PEDAL_INPUT_PIN = 20;
@@ -52,8 +52,6 @@ void send_can_cmd(CAN_message_t &msg) {
         } else {
             Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
         }
-    } else {
-        //TODO add training mode
     }
 }
 
@@ -85,13 +83,13 @@ void poll_pedal_value() {
     // Throttle down percent
     auto percent = uint8_t((resistance / 5000.0f) * 100.0f);
 
-    if(training_mode){
+    if (training_mode) {
         //Send CAN message with current pedal value, will send messages as fast as we poll the pedal
         CAN_message_t training_msg;
 
-        noInterrupts();
-        brake_ecu.generate_brk_msg(percent, training_msg);
-        interrupts();
+        training_msg.id = CanMappings::SetBrake;
+        training_msg.flags.extended = true;
+        training_msg.buf[0] = percent;
 
         h_priority.write(training_msg);
     }
@@ -156,6 +154,13 @@ void setup() {
     //Mailbox dedicated to transmitting messages to the physical brake actuator
     actuator.setMB(MB0, TX, EXT);
     actuator.enableMBInterrupts();
+
+    //Fire off one message to bring actuator to configured zero point
+    CAN_message_t msg;
+    noInterrupts();
+    brake_ecu.generate_brk_msg(0, msg);
+    interrupts();
+    actuator.write(msg);
 
     //Interrupts to keep the actuator alive and poll the pedal for input
     keep_alive.priority(0);

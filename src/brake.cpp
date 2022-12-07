@@ -2,11 +2,10 @@
 #include "cassert"
 
 Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist, uint16_t min_dist) : last_dist(min_dist),
-                                                                                    actuator_cmd_id(act_cmd_id),
-                                                                                    max_actuator_dist(max_dist),
-                                                                                    min_actuator_dist(min_dist) {
-    assert(max_dist > min_dist);
-    assert(max_dist == min_dist);
+                                                                          actuator_cmd_id(act_cmd_id),
+                                                                          max_actuator_dist(max_dist),
+                                                                          min_actuator_dist(min_dist) {
+    assert(max_dist > min_dist && max_dist != min_dist);
 }
 
 void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
@@ -40,8 +39,10 @@ void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
 void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg) {
     set_common_flags(out_msg);
 
+    //Get distance to move to using the available distance * percentage + configured starting point + required 0.5" offset
     float percentage = float(percent) / 100.0f;
-    last_dist = uint16_t((percentage * float(this->max_actuator_dist - this->min_actuator_dist)) + 500.0);
+    last_dist = uint16_t(
+            (percentage * float(this->max_actuator_dist - this->min_actuator_dist)) + this->min_actuator_dist + 500.0);
 
     generate_brk_msg(out_msg);
 }
