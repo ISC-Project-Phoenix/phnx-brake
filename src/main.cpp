@@ -85,6 +85,17 @@ void poll_pedal_value() {
     // Throttle down percent
     auto percent = uint8_t((resistance / 5000.0f) * 100.0f);
 
+    if(training_mode){
+        //Send CAN message with current pedal value, will send messages as fast as we poll the pedal
+        CAN_message_t training_msg;
+
+        noInterrupts();
+        brake_ecu.generate_brk_msg(percent, training_msg);
+        interrupts();
+
+        h_priority.write(training_msg);
+    }
+
     if (percent > 5) {
         CAN_message_t act_msg;
 
