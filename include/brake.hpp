@@ -21,18 +21,24 @@ public:
     void generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg);
 
     /// Generate output message for actuator CAN bus based on input pedal percentage.
+    /// \param out_msg reference to the CAN message to output data to
+    /// \param percent percentage of actuator travel
     void generate_brk_msg(uint8_t percent, CAN_message_t &out_msg);
 
     /// Generate output message for actuator CAN bus matching last received distance.
+    /// \param out_msg reference to the CAN message to output data to
     void generate_brk_msg(CAN_message_t &out_msg) const;
 
-    ///Return the last measured distance from either the pedal or the CAN bus
+    ///Getter for last recorded distance to travel
+    /// \return last recorded distance as a uint16_t
     uint16_t get_last_dist() const;
 
-    ///Set the last received distance for actuator heartbeat
-    void set_last_dist(uint16_t dist);
-
     ///Return minimum distance actuator can move
+    /// \return minimum distance actuator can move as a uint16_t
     uint16_t get_min_dist() const;
+
+    ///Return maximum distance acutator can move
+    /// \return max distance actuator can move as a uint16_t
+    uint16_t get_max_dist() const;
 
 };

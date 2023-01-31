@@ -11,12 +11,14 @@ enum CanMappings {
 constexpr int PEDAL_INPUT_PIN = 20;
 constexpr int PEDAL_POLL_RATE = 100; //In microseconds
 constexpr int KEEP_ALIVE_RATE = 100000; // In microseconds
+constexpr int MAX_ACTUATOR_DIST = 2000;
+constexpr int MIN_ACTUATOR_DIST = 1000;
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> h_priority;
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> actuator;
 
 /// Stores actuator state. Must be synchronised
-Brake brake_ecu{0xFF0000, 2000, 0};
+Brake brake_ecu{0xFF0000, MAX_ACTUATOR_DIST, MIN_ACTUATOR_DIST};
 
 bool auton_disabled;
 bool training_mode;
@@ -26,6 +28,15 @@ bool brake_lock;
 IntervalTimer keep_alive;
 /// Timer to poll pedal ADC
 IntervalTimer poll_pedal;
+
+///Sets actuator to configured zero point
+void zero_actuator() {
+    CAN_message_t msg;
+    noInterrupts();
+    brake_ecu.generate_brk_msg(0, msg);
+    interrupts();
+    actuator.write(msg);
+}
 
 /// Called on can message received in the main loop context.
 ///
@@ -47,10 +58,12 @@ void send_can_cmd(CAN_message_t &msg) {
             actuator.write(act_msg);
         } else if (msg.id == CanMappings::LockBrake) {
             brake_lock = true;
+            digitalWrite(LED_BUILTIN, HIGH);
         } else if (msg.id == CanMappings::UnlockBrake) {
             //Set actuator last dist to what we've defined our starting point to be
-            brake_ecu.set_last_dist(brake_ecu.get_min_dist());
+            zero_actuator();
             brake_lock = false;
+            digitalWrite(LED_BUILTIN, LOW);
         } else {
             Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
         }
@@ -61,7 +74,7 @@ void send_can_cmd(CAN_message_t &msg) {
 /// If this is not sent the actuator will still take in new messages but wont hold its last
 /// position.
 void actu_keep_alive() {
-    if (brake_lock || brake_ecu.get_last_dist() != brake_ecu.get_min_dist()) {
+    if (brake_lock || brake_ecu.get_last_dist() == MIN_ACTUATOR_DIST) {
         return;
     }
     CAN_message_t act_msg;
@@ -147,7 +160,8 @@ void setup() {
     h_priority.setMB(MB2, TX, EXT);
     h_priority.setMBFilter(REJECT_ALL);
     h_priority.enableMBInterrupts();
-    h_priority.setMBFilter(MB0, CanMappings::SetBrake, CanMappings::TrainingMode);
+    h_priority.setMBFilter(MB0, CanMappings::SetBrake, CanMappings::TrainingMode, CanMappings::LockBrake,
+                           CanMappings::UnlockBrake);
     h_priority.onReceive(MB0, reinterpret_cast<_MB_ptr>(send_can_cmd));
 
     /*
@@ -157,12 +171,8 @@ void setup() {
     actuator.setMB(MB0, TX, EXT);
     actuator.enableMBInterrupts();
 
-    //Fire off one message to bring actuator to configured zero point
-    CAN_message_t msg;
-    noInterrupts();
-    brake_ecu.generate_brk_msg(0, msg);
-    interrupts();
-    actuator.write(msg);
+    //Set actuator to configured zero point
+    zero_actuator();
 
     //Interrupts to keep the actuator alive and poll the pedal for input
     keep_alive.priority(0);

@@ -41,8 +41,8 @@ void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg) {
 
     //Get distance to move to using the available distance * percentage + configured starting point + required 0.5" offset
     float percentage = float(percent) / 100.0f;
-    last_dist = uint16_t(
-            (percentage * float(this->max_actuator_dist - this->min_actuator_dist)) + this->min_actuator_dist + 500.0);
+    this->last_dist = uint16_t(
+            (percentage * float(this->max_actuator_dist - this->min_actuator_dist)) + this->min_actuator_dist);
 
     generate_brk_msg(out_msg);
 }
@@ -55,8 +55,8 @@ void Brake::generate_brk_msg(CAN_message_t &out_msg) const {
     out_msg.buf[0] = 0xF;
     out_msg.buf[1] = 0x4A;
     //First break up 16 bit value of distance into least and most significant bytes
-    out_msg.buf[2] = static_cast<uint8_t>(this->last_dist & 0x00FF);
-    out_msg.buf[3] = static_cast<uint8_t>((this->last_dist & 0xFF00) >> 8);
+    out_msg.buf[2] = static_cast<uint8_t>((this->last_dist + 500) & 0x00FF);
+    out_msg.buf[3] = static_cast<uint8_t>(((this->last_dist + 500) & 0xFF00) >> 8);
     //Set last two bits of byte 3 to turn on clutch and motor
     out_msg.buf[3] |= 1UL << 7;
     out_msg.buf[3] |= 1UL << 6;
@@ -75,6 +75,7 @@ uint16_t Brake::get_min_dist() const {
     return this->min_actuator_dist;
 }
 
-void Brake::set_last_dist(uint16_t dist) {
-    this->last_dist = dist;
+uint16_t Brake::get_max_dist() const {
+    return this->max_actuator_dist;
 }
+
