@@ -25,5 +25,5 @@ jobs:
         
       - name: Build PlatformIO
         run: pio ci --lib="include" --board=teensy41
-         env:
+        env:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
