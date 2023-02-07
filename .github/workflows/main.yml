@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        example: [src/main.cpp, src/brake.cpp]
+        example: [src]
 
     steps:
       - uses: actions/checkout@v3
@@ -24,6 +24,6 @@ jobs:
         run: pip install --upgrade platformio
         
       - name: Build PlatformIO
-        run: pio ci --lib="include" --board=teensy41
+        run: pio ci --lib="include/brake.hpp" --board=teensy41
         env:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
