@@ -11,8 +11,8 @@ enum CanMappings {
 constexpr int PEDAL_INPUT_PIN = 20;
 constexpr int PEDAL_POLL_RATE = 100; //In microseconds
 constexpr int KEEP_ALIVE_RATE = 100000; // In microseconds
-constexpr int MAX_ACTUATOR_DIST = 2000;
-constexpr int MIN_ACTUATOR_DIST = 1000;
+constexpr int MAX_ACTUATOR_DIST = 2300;
+constexpr int MIN_ACTUATOR_DIST = 500;
 
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> h_priority;
 FlexCAN_T4<CAN2, RX_SIZE_256, TX_SIZE_16> actuator;
@@ -27,7 +27,7 @@ bool brake_lock;
 /// Timer to send heartbeat messages to actuator
 IntervalTimer keep_alive;
 /// Timer to poll pedal ADC
-IntervalTimer poll_pedal;
+//IntervalTimer poll_pedal;
 
 ///Sets actuator to configured zero point
 void zero_actuator() {
@@ -132,6 +132,7 @@ void poll_pedal_value() {
 void setup() {
     Serial.begin(115200);
     pinMode(PEDAL_INPUT_PIN, INPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, HIGH);
     delay(1000);
     digitalWrite(LED_BUILTIN, LOW);
@@ -176,9 +177,9 @@ void setup() {
 
     //Interrupts to keep the actuator alive and poll the pedal for input
     keep_alive.priority(0);
-    poll_pedal.priority(1);
+    //poll_pedal.priority(1);
     keep_alive.begin(actu_keep_alive, KEEP_ALIVE_RATE);
-    poll_pedal.begin(poll_pedal_value, PEDAL_POLL_RATE);
+    //poll_pedal.begin(poll_pedal_value, PEDAL_POLL_RATE);
 }
 
 void loop() {
