@@ -1,4 +1,5 @@
 #include "brake.hpp"
+#include "algorithm"
 
 Brake::Brake(uint32_t act_cmd_id, uint16_t max_dist) {
     this->actuator_cmd_id = act_cmd_id;
@@ -34,10 +35,16 @@ void Brake::generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg) {
     generate_brk_msg(in_msg.buf[0], out_msg);
 }
 
-void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg) {
+void Brake::generate_brk_msg(uint8_t percent, CAN_message_t &out_msg, bool true_zero) {
     set_common_flags(out_msg);
 
+    if (!true_zero) {
+        // Remap percents to the region that actually effects the brake actuator
+        percent = map(percent, 0, 100, 0x38, 0x48);
+    }
+
     float percentage = float(percent) / 100.0f;
+
     last_dist = uint16_t((percentage * float(this->max_actuator_dist)) + 500.0);
 
     generate_brk_msg(out_msg);

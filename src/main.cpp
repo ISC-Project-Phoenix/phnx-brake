@@ -40,7 +40,6 @@ void send_can_cmd(CAN_message_t &msg) {
             noInterrupts();
             brake_ecu.generate_brk_msg(msg, act_msg);
             interrupts();
-
             actuator.write(act_msg);
         } else {
             Serial.printf("Received invalid CAN id: %d from priority bus!", msg.id);
@@ -140,6 +139,10 @@ void setup() {
     poll_pedal.priority(1);
     keep_alive.begin(actu_keep_alive, KEEP_ALIVE_RATE);
     poll_pedal.begin(poll_pedal_value, PEDAL_POLL_RATE);
+
+    CAN_message_t zero{};
+    brake_ecu.generate_brk_msg(0, zero, true);
+    actuator.write(zero);
 }
 
 void loop() {

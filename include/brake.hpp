@@ -19,7 +19,7 @@ public:
     void generate_brk_msg(CAN_message_t &in_msg, CAN_message_t &out_msg);
 
     /// Generate output message for actuator CAN bus based on input pedal percentage.
-    void generate_brk_msg(uint8_t percent, CAN_message_t &out_msg);
+    void generate_brk_msg(uint8_t percent, CAN_message_t &out_msg, bool true_zero = false);
 
     /// Generate output message for actuator CAN bus matching last received distance.
     void generate_brk_msg(CAN_message_t &out_msg) const;
